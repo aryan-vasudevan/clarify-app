@@ -27,6 +27,12 @@ interface FileData {
     dataUrl?: string;
 }
 
+interface ChatMessage {
+    role: 'user' | 'agent';
+    content: string;
+    timestamp: Date;
+}
+
 export default function Viewer() {
     const router = useRouter();
     const [files, setFiles] = useState<FileData[]>([]);
@@ -38,7 +44,18 @@ export default function Viewer() {
     const [isCreating, setIsCreating] = useState(false);
     const [isConnected, setIsConnected] = useState(false);
     const [isMounted, setIsMounted] = useState(false);
+    const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
+    const [isChatModalOpen, setIsChatModalOpen] = useState(false);
+    const [showScreenshotBanner, setShowScreenshotBanner] = useState(true);
     const conversationRef = useRef<Conversation>(null);
+    const chatEndRef = useRef<HTMLDivElement>(null);
+
+    // Helper function to truncate message
+    const truncateMessage = (text: string, wordLimit: number = 5) => {
+        const words = text.split(' ');
+        if (words.length <= wordLimit) return text;
+        return words.slice(0, wordLimit).join(' ') + '...';
+    };
 
     // Ensure client-side only rendering
     useEffect(() => {
@@ -176,6 +193,32 @@ export default function Viewer() {
                 },
                 onMessage: (message) => {
                     console.log("Message from agent:", message);
+                    // Only add to chat history if there's actual text content
+                    if (message.message && message.message.trim().length > 0) {
+                        setChatHistory(prev => {
+                            const lastMsg = prev[prev.length - 1];
+                            // If last message was from agent, append to it
+                            if (lastMsg && lastMsg.role === 'agent') {
+                                return [
+                                    ...prev.slice(0, -1),
+                                    {
+                                        ...lastMsg,
+                                        content: lastMsg.content + ' ' + message.message,
+                                        timestamp: new Date()
+                                    }
+                                ];
+                            }
+                            // Otherwise create new message
+                            return [...prev, {
+                                role: 'agent',
+                                content: message.message,
+                                timestamp: new Date()
+                            }];
+                        });
+                    }
+                },
+                onModeChange: (mode) => {
+                    console.log("Mode change:", mode);
                 },
             });
             conversationRef.current = conversation;
@@ -185,6 +228,11 @@ export default function Viewer() {
             alert("Failed to start conversation");
         }
     };
+
+    // Auto-scroll to latest message
+    useEffect(() => {
+        chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [chatHistory]);
 
     // Listen for screenshot events and send to conversation
     useEffect(() => {
@@ -215,8 +263,30 @@ export default function Viewer() {
 
             const { analysis } = event.detail;
 
-            // Send the analysis to the conversation as if the user is asking about it
-            const message = `I have a question about this content from my textbook:\n\n${analysis}\n\nCan you explain this to me?`;
+            // Add user message to chat history as "sent a diagram or something"
+            setChatHistory(prev => {
+                const lastMsg = prev[prev.length - 1];
+                // If last message was from user, append to it
+                if (lastMsg && lastMsg.role === 'user') {
+                    return [
+                        ...prev.slice(0, -1),
+                        {
+                            ...lastMsg,
+                            content: lastMsg.content + ', sent a diagram or something',
+                            timestamp: new Date()
+                        }
+                    ];
+                }
+                // Otherwise create new message
+                return [...prev, {
+                    role: 'user',
+                    content: 'sent a diagram or something',
+                    timestamp: new Date()
+                }];
+            });
+
+            // Send the analysis to the conversation with proper diagram instruction
+            const message = `I've highlighted a diagram in my textbook. Here's what it contains:\n\n${analysis}\n\nPlease start your response with "Of course! I'll explain the [diagram type] diagram for you!" where you identify what type of diagram this is based on the content, then explain it to me. Remember, this is always a diagram, never an excerpt or text passage.`;
 
             console.log(
                 "Sending screenshot analysis to conversation:",
@@ -396,12 +466,23 @@ export default function Viewer() {
                 </div>
 
                 {/* Screenshot Instructions */}
-                <div className="bg-blue-50 dark:bg-blue-900/30 px-4 py-2 text-center">
-                    <p className="text-sm text-blue-800 dark:text-blue-300">
-                        Click and drag on the PDF to screenshot • Press ESC to
-                        cancel
-                    </p>
-                </div>
+                {showScreenshotBanner && (
+                    <div className="bg-blue-50 dark:bg-blue-900/30 px-4 py-2 text-center relative">
+                        <p className="text-sm text-blue-800 dark:text-blue-300">
+                            Click and drag on the PDF to screenshot • Press ESC to
+                            cancel
+                        </p>
+                        <button
+                            onClick={() => setShowScreenshotBanner(false)}
+                            className="absolute right-4 top-1/2 -translate-y-1/2 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200"
+                            title="Hide instructions"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                )}
 
                 {/* PDF Display */}
                 <div
@@ -445,7 +526,7 @@ export default function Viewer() {
                     </p>
                 </div>
 
-                <div className="flex-1 p-6">
+                <div className="flex-1 flex flex-col p-6 overflow-hidden">
                     {!agentId ? (
                         <div className="space-y-4">
                             <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -462,7 +543,7 @@ export default function Viewer() {
                             </button>
                         </div>
                     ) : (
-                        <div className="space-y-4">
+                        <div className="flex flex-col h-full space-y-4">
                             <div className="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 rounded-lg p-4">
                                 <p className="text-sm text-green-800 dark:text-green-300">
                                     ✓ Agent created successfully!
@@ -484,6 +565,42 @@ export default function Viewer() {
                                             your tutor!
                                         </p>
                                     </div>
+
+                                    {/* Chat History */}
+                                    {chatHistory.length > 0 && (
+                                        <div
+                                            className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-900/70 transition-colors"
+                                            onClick={() => setIsChatModalOpen(true)}
+                                        >
+                                            <div className="bg-gray-100 dark:bg-gray-700 px-3 py-2 border-b border-gray-200 dark:border-gray-600">
+                                                <h3 className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                                                    Messages (click to expand)
+                                                </h3>
+                                            </div>
+                                            <div className="flex-1 overflow-y-auto p-3 space-y-2">
+                                                {chatHistory.map((msg, idx) => (
+                                                    <div
+                                                        key={idx}
+                                                        className={`flex ${
+                                                            msg.role === 'user' ? 'justify-end' : 'justify-start'
+                                                        }`}
+                                                    >
+                                                        <div
+                                                            className={`max-w-[85%] rounded-2xl px-3 py-2 ${
+                                                                msg.role === 'user'
+                                                                    ? 'bg-blue-500 text-white'
+                                                                    : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
+                                                            }`}
+                                                        >
+                                                            <p className="text-sm break-words">{truncateMessage(msg.content)}</p>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                                <div ref={chatEndRef} />
+                                            </div>
+                                        </div>
+                                    )}
+
                                     <button
                                         onClick={stopConversation}
                                         className="w-full bg-red-500 dark:bg-red-600 text-white py-3 rounded-lg font-semibold hover:bg-red-600 dark:hover:bg-red-700 transition-colors"
@@ -496,6 +613,64 @@ export default function Viewer() {
                     )}
                 </div>
             </div>
+
+            {/* Chat Modal */}
+            {isChatModalOpen && (
+                <div
+                    className="fixed inset-0 bg-black/50 flex items-center justify-center z-[70]"
+                    onClick={() => setIsChatModalOpen(false)}
+                >
+                    <div
+                        className="bg-white dark:bg-gray-800 rounded-lg w-[600px] max-h-[80vh] flex flex-col"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+                            <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+                                Chat History
+                            </h2>
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setIsChatModalOpen(false);
+                                }}
+                                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                            >
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                            {chatHistory.map((msg, idx) => (
+                                <div
+                                    key={idx}
+                                    className={`flex ${
+                                        msg.role === 'user' ? 'justify-end' : 'justify-start'
+                                    }`}
+                                >
+                                    <div
+                                        className={`max-w-[75%] rounded-2xl px-4 py-3 ${
+                                            msg.role === 'user'
+                                                ? 'bg-blue-500 text-white'
+                                                : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
+                                        }`}
+                                    >
+                                        <p className="text-sm break-words whitespace-pre-wrap">{msg.content}</p>
+                                        <p className={`text-xs mt-2 ${
+                                            msg.role === 'user'
+                                                ? 'text-blue-100'
+                                                : 'text-gray-500 dark:text-gray-400'
+                                        }`}>
+                                            {msg.timestamp.toLocaleTimeString()}
+                                        </p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
+
         </div>
     );
 }
