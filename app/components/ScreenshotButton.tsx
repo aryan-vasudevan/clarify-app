@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import html2canvas from "html2canvas";
 
 interface SelectionRect {
     startX: number;
@@ -14,6 +13,7 @@ export default function ScreenshotButton() {
     const [isSelecting, setIsSelecting] = useState(false);
     const [selection, setSelection] = useState<SelectionRect | null>(null);
     const [isCapturing, setIsCapturing] = useState(false);
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
     const startPos = useRef({ x: 0, y: 0 });
     const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -68,17 +68,14 @@ export default function ScreenshotButton() {
 
         // Store selection area before clearing
         const captureArea = { ...selection };
-        
+
         // Close the selection overlay immediately
         setIsSelecting(false);
         setSelection(null);
         setIsCapturing(true);
 
-        // Small delay to let overlay clear
-        await new Promise(resolve => setTimeout(resolve, 50));
-
         try {
-            // Play camera shutter sound BEFORE capture
+            // Play camera shutter sound
             if (audioRef.current) {
                 audioRef.current.currentTime = 0;
                 audioRef.current.play().catch((error) => {
@@ -86,54 +83,115 @@ export default function ScreenshotButton() {
                 });
             }
 
-            // Capture the entire page
-            const canvas = await html2canvas(document.body, {
-                useCORS: true,
-                allowTaint: true,
-                scale: 2,
-                x: window.scrollX,
-                y: window.scrollY,
-            });
+            // Longer delay to ensure overlay is completely removed
+            await new Promise(resolve => setTimeout(resolve, 100));
 
-            // Get device pixel ratio for accurate cropping
-            const dpr = 2; // Same as scale in html2canvas
-            
+            // Get all elements at the selected position
+            const elementsAtPosition = document.elementsFromPoint(
+                captureArea.startX + captureArea.width / 2,
+                captureArea.startY + captureArea.height / 2
+            );
+
+            console.log("Elements at position:", elementsAtPosition);
+
+            // Find the canvas element from react-pdf (this has the actual PDF rendered)
+            const canvasElement = elementsAtPosition.find(el => el.tagName === 'CANVAS') as HTMLCanvasElement;
+
+            if (!canvasElement) {
+                throw new Error("Could not find PDF canvas to capture");
+            }
+
+            console.log("Canvas element found:", canvasElement);
+
+            // Get the canvas position
+            const canvasRect = canvasElement.getBoundingClientRect();
+
+            console.log("Canvas rect:", canvasRect);
+
+            // Calculate the crop position relative to the canvas element
+            const offsetX = captureArea.startX - canvasRect.left;
+            const offsetY = captureArea.startY - canvasRect.top;
+
+            console.log("Offset from canvas:", { offsetX, offsetY });
+
             // Create a new canvas for the cropped region
             const croppedCanvas = document.createElement("canvas");
-            croppedCanvas.width = captureArea.width * dpr;
-            croppedCanvas.height = captureArea.height * dpr;
-            
+            croppedCanvas.width = captureArea.width;
+            croppedCanvas.height = captureArea.height;
+
             const ctx = croppedCanvas.getContext("2d");
             if (ctx) {
-                // Draw the selected portion
+                // Draw directly from the PDF canvas element
                 ctx.drawImage(
-                    canvas,
-                    (captureArea.startX + window.scrollX) * dpr,
-                    (captureArea.startY + window.scrollY) * dpr,
-                    captureArea.width * dpr,
-                    captureArea.height * dpr,
+                    canvasElement,
+                    offsetX,
+                    offsetY,
+                    captureArea.width,
+                    captureArea.height,
                     0,
                     0,
-                    captureArea.width * dpr,
-                    captureArea.height * dpr
+                    captureArea.width,
+                    captureArea.height
                 );
             }
 
             const screenshotDataUrl = croppedCanvas.toDataURL("image/png");
-            
-            // Store in sessionStorage
-            sessionStorage.setItem("pageScreenshot", screenshotDataUrl);
-            sessionStorage.setItem("screenshotTimestamp", new Date().toISOString());
+            setIsCapturing(false);
+
+            // Start Gemini analysis
+            setIsAnalyzing(true);
+
+            try {
+                console.log("Sending screenshot to Gemini for analysis...");
+
+                // Send to Gemini for OCR/Visual Analysis
+                const ocrResponse = await fetch("/api/ocr", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        imageData: screenshotDataUrl,
+                    }),
+                });
+
+                console.log("OCR Response status:", ocrResponse.status);
+
+                if (ocrResponse.ok) {
+                    const ocrData = await ocrResponse.json();
+                    console.log("=== GEMINI ANALYSIS (Client) ===");
+                    console.log(ocrData.text);
+                    console.log("================================");
+
+                    // Store the Gemini analysis in sessionStorage
+                    sessionStorage.setItem("geminiAnalysis", ocrData.text);
+                    sessionStorage.setItem("screenshotImage", screenshotDataUrl);
+                    sessionStorage.setItem("screenshotTimestamp", new Date().toISOString());
+
+                    // Dispatch a custom event to notify the viewer that a new screenshot is ready
+                    window.dispatchEvent(new CustomEvent("newScreenshot", {
+                        detail: {
+                            analysis: ocrData.text,
+                            image: screenshotDataUrl,
+                            timestamp: new Date().toISOString()
+                        }
+                    }));
+                } else {
+                    const errorText = await ocrResponse.text();
+                    console.error("OCR failed:", errorText);
+                    alert("Failed to analyze screenshot with Gemini");
+                }
+            } catch (analysisError) {
+                console.error("Gemini analysis failed:", analysisError);
+                alert("Failed to analyze with Gemini: " + (analysisError instanceof Error ? analysisError.message : String(analysisError)));
+            } finally {
+                setIsAnalyzing(false);
+            }
         } catch (error) {
-            console.error("Screenshot failed:", error);
-        } finally {
+            console.error("Screenshot capture failed:", error);
+            alert("Failed to capture screenshot");
             setIsCapturing(false);
         }
-    };
-
-    const handleCancel = () => {
-        setIsSelecting(false);
-        setSelection(null);
     };
 
     // Handle ESC key press
@@ -156,11 +214,22 @@ export default function ScreenshotButton() {
 
     return (
         <>
+            {/* Analyzing indicator */}
+            {isAnalyzing && (
+                <div className="fixed top-20 right-6 z-50 bg-purple-500 text-white px-4 py-2 rounded-lg shadow-lg flex items-center space-x-2">
+                    <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span className="text-sm font-semibold">Gemini analyzing...</span>
+                </div>
+            )}
+
             <button
                 type="button"
                 id="screenshot-button"
                 onClick={handleButtonClick}
-                disabled={isCapturing || isSelecting}
+                disabled={isCapturing || isSelecting || isAnalyzing}
                 className="fixed top-6 right-20 z-50 w-12 h-12 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center hover:scale-110 transition-all duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 aria-label="Take screenshot"
                 title="Take screenshot"

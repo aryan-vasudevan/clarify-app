@@ -160,6 +160,53 @@ export default function Viewer() {
         }
     };
 
+    // Listen for screenshot events and send to conversation
+    useEffect(() => {
+        const handleScreenshotProcessing = () => {
+            if (!conversationRef.current || !isConnected) {
+                console.log("Screenshot being processed but conversation not active");
+                return;
+            }
+
+            // Send an immediate acknowledgment message
+            const acknowledgment = "Wait while I process the diagram, I'll be able to explain it shortly.";
+
+            try {
+                conversationRef.current.sendUserMessage(acknowledgment);
+            } catch (error) {
+                console.error("Failed to send acknowledgment:", error);
+            }
+        };
+
+        const handleNewScreenshot = (event: CustomEvent) => {
+            if (!conversationRef.current || !isConnected) {
+                console.log("Screenshot taken but conversation not active");
+                return;
+            }
+
+            const { analysis } = event.detail;
+
+            // Send the analysis to the conversation as if the user is asking about it
+            const message = `I have a question about this content from my textbook:\n\n${analysis}\n\nCan you explain this to me?`;
+
+            console.log("Sending screenshot analysis to conversation:", message);
+
+            try {
+                conversationRef.current.sendUserMessage(message);
+            } catch (error) {
+                console.error("Failed to send screenshot to conversation:", error);
+            }
+        };
+
+        window.addEventListener("screenshotProcessing", handleScreenshotProcessing as EventListener);
+        window.addEventListener("newScreenshot", handleNewScreenshot as EventListener);
+
+        return () => {
+            window.removeEventListener("screenshotProcessing", handleScreenshotProcessing as EventListener);
+            window.removeEventListener("newScreenshot", handleNewScreenshot as EventListener);
+        };
+    }, [isConnected]);
+
     const stopConversation = async () => {
         try {
             if (conversationRef.current) {
@@ -291,7 +338,7 @@ export default function Viewer() {
                 </div>
 
                 {/* PDF Display */}
-                <div className="flex-1 overflow-auto bg-gray-200 dark:bg-gray-800 p-4 transition-colors duration-300">
+                <div id="pdf-viewer-container" className="flex-1 overflow-auto bg-gray-200 dark:bg-gray-800 p-4 transition-colors duration-300">
                     {currentFile.dataUrl && (
                         <div className="flex justify-center">
                             <Document
