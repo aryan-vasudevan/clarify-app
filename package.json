@@ -12,6 +12,7 @@
     "@elevenlabs/client": "^0.7.1",
     "@elevenlabs/elevenlabs-js": "^2.17.0",
     "dotenv": "^17.2.3",
+    "html2canvas": "^1.4.1",
     "next": "15.5.4",
     "pdfjs-dist": "^5.4.149",
     "react": "19.1.0",
