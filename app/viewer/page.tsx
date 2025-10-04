@@ -70,7 +70,7 @@ export default function Viewer() {
     };
 
     const zoomIn = () => {
-        setScale((prev) => Math.min(prev + 0.2, 3.0));
+        setScale((prev) => Math.min(prev + 0.2, 1.7));
     };
 
     const zoomOut = () => {
@@ -144,6 +144,7 @@ export default function Viewer() {
         try {
             const conversation = await Conversation.startSession({
                 agentId: agentId,
+                connectionType: "websocket",
                 onConnect: () => {
                     console.log("Connected to agent");
                     setIsConnected(true);
@@ -276,28 +277,32 @@ export default function Viewer() {
             <div className="flex-1 flex flex-col bg-gray-100 dark:bg-gray-900 transition-colors duration-300">
                 {/* Header with file navigation */}
                 <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 transition-colors duration-300">
-                    <div className="flex items-center justify-between">
-                        <button
-                            onClick={() => router.push("/")}
-                            className="text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 flex items-center transition-colors"
-                        >
-                            <svg
-                                className="w-5 h-5 mr-2"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
+                    <div className="flex items-center">
+                        {/* Left section (1/5) - Back button */}
+                        <div className="w-1/5 flex justify-start">
+                            <button
+                                onClick={() => router.push("/")}
+                                className="text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 flex items-center transition-colors"
                             >
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M15 19l-7-7 7-7"
-                                />
-                            </svg>
-                            Back
-                        </button>
+                                <svg
+                                    className="w-5 h-5 mr-2"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M15 19l-7-7 7-7"
+                                    />
+                                </svg>
+                                Back
+                            </button>
+                        </div>
 
-                        <div className="flex items-center space-x-4">
+                        {/* Center section (3/5) - File navigation */}
+                        <div className="w-3/5 flex items-center justify-center space-x-4">
                             <button
                                 onClick={goToPrevFile}
                                 disabled={currentFileIndex === 0}
@@ -317,30 +322,40 @@ export default function Viewer() {
                             </button>
                         </div>
 
-                        <div className="flex items-center space-x-2">
-                            <button
-                                onClick={zoomOut}
-                                className="px-3 py-1 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 transition-colors"
-                                title="Zoom Out"
-                            >
-                                -
-                            </button>
-                            <button
-                                onClick={resetZoom}
-                                className="px-3 py-1 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-xs text-gray-800 dark:text-gray-200 transition-colors"
-                                title="Reset Zoom"
-                            >
-                                {Math.round(scale * 100)}%
-                            </button>
-                            <button
-                                onClick={zoomIn}
-                                className="px-3 py-1 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 transition-colors"
-                                title="Zoom In"
-                            >
-                                +
-                            </button>
+                        {/* Right section (1/5) - Zoom controls as one box */}
+                        <div className="w-1/5 flex justify-end">
+                            <div className="flex items-stretch bg-gray-200 dark:bg-gray-700 rounded overflow-hidden">
+                                <button
+                                    onClick={zoomOut}
+                                    className="px-3 py-1 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 transition-colors border-r border-gray-300 dark:border-gray-600"
+                                    title="Zoom Out"
+                                >
+                                    -
+                                </button>
+                                <button
+                                    onClick={resetZoom}
+                                    className="px-3 py-1 hover:bg-gray-300 dark:hover:bg-gray-600 text-xs text-gray-800 dark:text-gray-200 transition-colors border-r border-gray-300 dark:border-gray-600"
+                                    title="Reset Zoom"
+                                >
+                                    {Math.round(scale * 100)}%
+                                </button>
+                                <button
+                                    onClick={zoomIn}
+                                    className="px-3 py-1 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 transition-colors"
+                                    title="Zoom In"
+                                >
+                                    +
+                                </button>
+                            </div>
                         </div>
                     </div>
+                </div>
+
+                {/* Screenshot Instructions */}
+                <div className="bg-blue-50 dark:bg-blue-900/30 px-4 py-2 text-center">
+                    <p className="text-sm text-blue-800 dark:text-blue-300">
+                        Click and drag on the PDF to screenshot • Press ESC to cancel
+                    </p>
                 </div>
 
                 {/* PDF Display */}
@@ -368,7 +383,7 @@ export default function Viewer() {
             </div>
 
             {/* Right sidebar - Agent controls */}
-            <div className="w-80 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 flex flex-col transition-colors duration-300">
+            <div className="w-96 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 flex flex-col transition-colors duration-300">
                 <div className="p-6 border-b border-gray-200 dark:border-gray-700">
                     <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">Kirb</h2>
                     <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">

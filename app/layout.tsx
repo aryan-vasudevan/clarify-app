@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Kirb - AI Textbook Tutor",
+  title: "// Kirb //",
   description: "Upload your textbook and get conversational help from Kirb",
 };
 
