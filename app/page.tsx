@@ -4,6 +4,7 @@ import { Conversation } from "@elevenlabs/client";
 
 export default function Home() {
   const [agentId, setAgentId] = useState<string | null>(null);
+  const [knowledgeBaseId, setKnowledgeBaseId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const conversationRef = useRef<any>(null);
@@ -11,22 +12,35 @@ export default function Home() {
   const createAgent = async () => {
     setIsCreating(true);
     try {
-      const response = await fetch('/api/agents/create', {
+      // First, upload the economics textbook to knowledge base
+      const kbResponse = await fetch('/api/knowledge-base/create', {
+        method: 'POST',
+      });
+
+      if (!kbResponse.ok) {
+        throw new Error('Failed to create knowledge base');
+      }
+
+      const kbData = await kbResponse.json();
+      setKnowledgeBaseId(kbData.document_id);
+
+      // Then, create the agent with the knowledge base
+      const agentResponse = await fetch('/api/agents/create', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          textContent: 'Sample textbook content about mathematics and science.',
+          knowledgeBaseId: kbData.document_id,
         }),
       });
 
-      if (!response.ok) {
+      if (!agentResponse.ok) {
         throw new Error('Failed to create agent');
       }
 
-      const data = await response.json();
-      setAgentId(data.agent_id);
+      const agentData = await agentResponse.json();
+      setAgentId(agentData.agent_id);
     } catch (error) {
       console.error('Error creating agent:', error);
       alert('Failed to create agent');
@@ -75,7 +89,7 @@ export default function Home() {
 
       // Delete the agent
       if (agentId) {
-        const response = await fetch('/api/agents/delete', {
+        const agentResponse = await fetch('/api/agents/delete', {
           method: 'DELETE',
           headers: {
             'Content-Type': 'application/json',
@@ -85,13 +99,33 @@ export default function Home() {
           }),
         });
 
-        if (!response.ok) {
+        if (!agentResponse.ok) {
           throw new Error('Failed to delete agent');
         }
 
         setAgentId(null);
-        setIsConnected(false);
       }
+
+      // Delete the knowledge base document
+      if (knowledgeBaseId) {
+        const kbResponse = await fetch('/api/knowledge-base/delete', {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            document_id: knowledgeBaseId,
+          }),
+        });
+
+        if (!kbResponse.ok) {
+          throw new Error('Failed to delete knowledge base');
+        }
+
+        setKnowledgeBaseId(null);
+      }
+
+      setIsConnected(false);
     } catch (error) {
       console.error('Error stopping conversation:', error);
       alert('Failed to stop conversation');

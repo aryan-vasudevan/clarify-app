@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
   try {
-    const { textContent } = await request.json();
+    const { knowledgeBaseId } = await request.json();
 
     const response = await fetch('https://api.elevenlabs.io/v1/convai/agents/create', {
       method: 'POST',
@@ -11,13 +11,16 @@ export async function POST(request: NextRequest) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        name: 'Textbook Assistant',
+        name: 'Economics Tutor',
         conversation_config: {
           agent: {
             prompt: {
-              prompt: `You are a helpful assistant that answers questions about the following textbook content: ${textContent || 'General knowledge textbook.'}`,
+              prompt: `You are an economics tutor. Use the economics textbook in your knowledge base to answer student questions accurately and clearly. Provide explanations, examples, and help students understand economic concepts.`,
             },
           },
+        },
+        platform_settings: {
+          knowledge_base: knowledgeBaseId ? [knowledgeBaseId] : undefined,
         },
       }),
     });
