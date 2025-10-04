@@ -216,13 +216,13 @@ export default function Viewer() {
     return (
         <div className="h-screen flex" style={{ fontFamily: "var(--font-geist-mono)" }}>
             {/* Left side - PDF Viewer */}
-            <div className="flex-1 flex flex-col bg-gray-100">
+            <div className="flex-1 flex flex-col bg-gray-100 dark:bg-gray-900 transition-colors duration-300">
                 {/* Header with file navigation */}
-                <div className="bg-white border-b border-gray-200 px-6 py-4">
+                <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 transition-colors duration-300">
                     <div className="flex items-center justify-between">
                         <button
                             onClick={() => router.push("/")}
-                            className="text-gray-600 hover:text-gray-800 flex items-center"
+                            className="text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 flex items-center transition-colors"
                         >
                             <svg
                                 className="w-5 h-5 mr-2"
@@ -244,17 +244,17 @@ export default function Viewer() {
                             <button
                                 onClick={goToPrevFile}
                                 disabled={currentFileIndex === 0}
-                                className="px-3 py-1 rounded bg-gray-200 hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="px-3 py-1 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-gray-800 dark:text-gray-200 transition-colors"
                             >
                                 ← Prev File
                             </button>
-                            <span className="text-sm text-gray-600">
+                            <span className="text-sm text-gray-600 dark:text-gray-400">
                                 {currentFile.name} ({currentFileIndex + 1} of {files.length})
                             </span>
                             <button
                                 onClick={goToNextFile}
                                 disabled={currentFileIndex === files.length - 1}
-                                className="px-3 py-1 rounded bg-gray-200 hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="px-3 py-1 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-gray-800 dark:text-gray-200 transition-colors"
                             >
                                 Next File →
                             </button>
@@ -263,21 +263,21 @@ export default function Viewer() {
                         <div className="flex items-center space-x-2">
                             <button
                                 onClick={zoomOut}
-                                className="px-3 py-1 rounded bg-gray-200 hover:bg-gray-300"
+                                className="px-3 py-1 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 transition-colors"
                                 title="Zoom Out"
                             >
                                 -
                             </button>
                             <button
                                 onClick={resetZoom}
-                                className="px-3 py-1 rounded bg-gray-200 hover:bg-gray-300 text-xs"
+                                className="px-3 py-1 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-xs text-gray-800 dark:text-gray-200 transition-colors"
                                 title="Reset Zoom"
                             >
                                 {Math.round(scale * 100)}%
                             </button>
                             <button
                                 onClick={zoomIn}
-                                className="px-3 py-1 rounded bg-gray-200 hover:bg-gray-300"
+                                className="px-3 py-1 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 transition-colors"
                                 title="Zoom In"
                             >
                                 +
@@ -287,7 +287,7 @@ export default function Viewer() {
                 </div>
 
                 {/* PDF Display */}
-                <div className="flex-1 overflow-auto bg-gray-200 p-4">
+                <div className="flex-1 overflow-auto bg-gray-200 dark:bg-gray-800 p-4 transition-colors duration-300">
                     {currentFile.dataUrl && (
                         <div className="flex justify-center">
                             <Document
@@ -311,10 +311,10 @@ export default function Viewer() {
             </div>
 
             {/* Right sidebar - Agent controls */}
-            <div className="w-80 bg-white border-l border-gray-200 flex flex-col">
-                <div className="p-6 border-b border-gray-200">
-                    <h2 className="text-xl font-bold text-gray-800">AI Tutor</h2>
-                    <p className="text-sm text-gray-600 mt-1">
+            <div className="w-80 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 flex flex-col transition-colors duration-300">
+                <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+                    <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">Kirb</h2>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                         {files.length} document{files.length > 1 ? "s" : ""} loaded
                     </p>
                 </div>
@@ -322,21 +322,21 @@ export default function Viewer() {
                 <div className="flex-1 p-6">
                     {!agentId ? (
                         <div className="space-y-4">
-                            <p className="text-sm text-gray-600">
-                                Create an AI tutor to help you understand your documents.
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                                Initiate a conversational chat with Kirb.
                             </p>
                             <button
                                 onClick={createAgent}
                                 disabled={isCreating}
-                                className="w-full bg-blue-500 text-white py-3 rounded-lg font-semibold hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                                className="w-full bg-blue-500 dark:bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-600 dark:hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
                             >
                                 {isCreating ? "Creating Agent..." : "Create Agent"}
                             </button>
                         </div>
                     ) : (
                         <div className="space-y-4">
-                            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                                <p className="text-sm text-green-800">
+                            <div className="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 rounded-lg p-4">
+                                <p className="text-sm text-green-800 dark:text-green-300">
                                     ✓ Agent created successfully!
                                 </p>
                             </div>
@@ -344,20 +344,20 @@ export default function Viewer() {
                             {!isConnected ? (
                                 <button
                                     onClick={startConversation}
-                                    className="w-full bg-green-500 text-white py-3 rounded-lg font-semibold hover:bg-green-600 transition-colors"
+                                    className="w-full bg-green-500 dark:bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-600 dark:hover:bg-green-700 transition-colors"
                                 >
                                     Start Conversation
                                 </button>
                             ) : (
                                 <>
-                                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                                        <p className="text-sm text-blue-800">
+                                    <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg p-4">
+                                        <p className="text-sm text-blue-800 dark:text-blue-300">
                                             🎤 Conversation active - speak to your tutor!
                                         </p>
                                     </div>
                                     <button
                                         onClick={stopConversation}
-                                        className="w-full bg-red-500 text-white py-3 rounded-lg font-semibold hover:bg-red-600 transition-colors"
+                                        className="w-full bg-red-500 dark:bg-red-600 text-white py-3 rounded-lg font-semibold hover:bg-red-600 dark:hover:bg-red-700 transition-colors"
                                     >
                                         Stop Conversation
                                     </button>
