@@ -29,7 +29,7 @@ export default function Viewer() {
     const [isCreating, setIsCreating] = useState(false);
     const [isConnected, setIsConnected] = useState(false);
     const [isMounted, setIsMounted] = useState(false);
-    const conversationRef = useRef<any>(null);
+    const conversationRef = useRef<Conversation>(null);
 
     // Ensure client-side only rendering
     useEffect(() => {
@@ -92,7 +92,9 @@ export default function Viewer() {
                 // Convert data URL back to File
                 const response = await fetch(file.dataUrl);
                 const blob = await response.blob();
-                const fileObj = new File([blob], file.name, { type: file.type });
+                const fileObj = new File([blob], file.name, {
+                    type: file.type,
+                });
 
                 const formData = new FormData();
                 formData.append("file", fileObj);
@@ -104,7 +106,9 @@ export default function Viewer() {
                 });
 
                 if (!kbResponse.ok) {
-                    throw new Error(`Failed to create knowledge base for ${file.name}`);
+                    throw new Error(
+                        `Failed to create knowledge base for ${file.name}`
+                    );
                 }
 
                 const kbData = await kbResponse.json();
@@ -144,6 +148,7 @@ export default function Viewer() {
         try {
             const conversation = await Conversation.startSession({
                 agentId: agentId,
+                connectionType: "webrtc",
                 onConnect: () => {
                     console.log("Connected to agent");
                     setIsConnected(true);
@@ -152,14 +157,15 @@ export default function Viewer() {
                     console.log("Disconnected from agent");
                     setIsConnected(false);
                 },
-                onError: (error: any) => {
+                onError: (error) => {
                     console.error("Conversation error:", error);
                 },
-                onMessage: (message: any) => {
+                onMessage: (message) => {
                     console.log("Message from agent:", message);
                 },
             });
             conversationRef.current = conversation;
+            console.log(conversationRef);
         } catch (error) {
             console.error("Error starting conversation:", error);
             alert("Failed to start conversation");
@@ -170,12 +176,15 @@ export default function Viewer() {
     useEffect(() => {
         const handleScreenshotProcessing = () => {
             if (!conversationRef.current || !isConnected) {
-                console.log("Screenshot being processed but conversation not active");
+                console.log(
+                    "Screenshot being processed but conversation not active"
+                );
                 return;
             }
 
             // Send an immediate acknowledgment message
-            const acknowledgment = "Wait while I process the diagram, I'll be able to explain it shortly.";
+            const acknowledgment =
+                "Wait while I process the diagram, I'll be able to explain it shortly.";
 
             try {
                 conversationRef.current.sendUserMessage(acknowledgment);
@@ -195,21 +204,39 @@ export default function Viewer() {
             // Send the analysis to the conversation as if the user is asking about it
             const message = `I have a question about this content from my textbook:\n\n${analysis}\n\nCan you explain this to me?`;
 
-            console.log("Sending screenshot analysis to conversation:", message);
+            console.log(
+                "Sending screenshot analysis to conversation:",
+                message
+            );
 
             try {
                 conversationRef.current.sendUserMessage(message);
             } catch (error) {
-                console.error("Failed to send screenshot to conversation:", error);
+                console.error(
+                    "Failed to send screenshot to conversation:",
+                    error
+                );
             }
         };
 
-        window.addEventListener("screenshotProcessing", handleScreenshotProcessing as EventListener);
-        window.addEventListener("newScreenshot", handleNewScreenshot as EventListener);
+        window.addEventListener(
+            "screenshotProcessing",
+            handleScreenshotProcessing as EventListener
+        );
+        window.addEventListener(
+            "newScreenshot",
+            handleNewScreenshot as EventListener
+        );
 
         return () => {
-            window.removeEventListener("screenshotProcessing", handleScreenshotProcessing as EventListener);
-            window.removeEventListener("newScreenshot", handleNewScreenshot as EventListener);
+            window.removeEventListener(
+                "screenshotProcessing",
+                handleScreenshotProcessing as EventListener
+            );
+            window.removeEventListener(
+                "newScreenshot",
+                handleNewScreenshot as EventListener
+            );
         };
     }, [isConnected]);
 
@@ -269,7 +296,10 @@ export default function Viewer() {
     const currentFile = files[currentFileIndex];
 
     return (
-        <div className="h-screen flex" style={{ fontFamily: "var(--font-geist-mono)" }}>
+        <div
+            className="h-screen flex"
+            style={{ fontFamily: "var(--font-geist-mono)" }}
+        >
             <ScreenshotArea containerId="pdf-viewer-container" />
             <ThemeToggle />
             {/* Left side - PDF Viewer */}
@@ -306,7 +336,8 @@ export default function Viewer() {
                                 ← Prev File
                             </button>
                             <span className="text-sm text-gray-600 dark:text-gray-400">
-                                {currentFile.name} ({currentFileIndex + 1} of {files.length})
+                                {currentFile.name} ({currentFileIndex + 1} of{" "}
+                                {files.length})
                             </span>
                             <button
                                 onClick={goToNextFile}
@@ -344,7 +375,10 @@ export default function Viewer() {
                 </div>
 
                 {/* PDF Display */}
-                <div id="pdf-viewer-container" className="flex-1 overflow-auto bg-gray-200 dark:bg-gray-800 p-4 transition-colors duration-300">
+                <div
+                    id="pdf-viewer-container"
+                    className="flex-1 overflow-auto bg-gray-200 dark:bg-gray-800 p-4 transition-colors duration-300"
+                >
                     {currentFile.dataUrl && (
                         <div className="flex justify-center">
                             <Document
@@ -352,14 +386,17 @@ export default function Viewer() {
                                 onLoadSuccess={onDocumentLoadSuccess}
                             >
                                 <div className="space-y-4">
-                                    {Array.from(new Array(numPages), (_, index) => (
-                                        <Page
-                                            key={`page_${index + 1}`}
-                                            pageNumber={index + 1}
-                                            scale={scale}
-                                            className="shadow-lg bg-white"
-                                        />
-                                    ))}
+                                    {Array.from(
+                                        new Array(numPages),
+                                        (_, index) => (
+                                            <Page
+                                                key={`page_${index + 1}`}
+                                                pageNumber={index + 1}
+                                                scale={scale}
+                                                className="shadow-lg bg-white"
+                                            />
+                                        )
+                                    )}
                                 </div>
                             </Document>
                         </div>
@@ -370,9 +407,12 @@ export default function Viewer() {
             {/* Right sidebar - Agent controls */}
             <div className="w-80 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 flex flex-col transition-colors duration-300">
                 <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-                    <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">Kirb</h2>
+                    <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">
+                        Kirb
+                    </h2>
                     <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                        {files.length} document{files.length > 1 ? "s" : ""} loaded
+                        {files.length} document{files.length > 1 ? "s" : ""}{" "}
+                        loaded
                     </p>
                 </div>
 
@@ -387,7 +427,9 @@ export default function Viewer() {
                                 disabled={isCreating}
                                 className="w-full bg-blue-500 dark:bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-600 dark:hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
                             >
-                                {isCreating ? "Creating Agent..." : "Create Agent"}
+                                {isCreating
+                                    ? "Creating Agent..."
+                                    : "Create Agent"}
                             </button>
                         </div>
                     ) : (
@@ -409,7 +451,8 @@ export default function Viewer() {
                                 <>
                                     <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg p-4">
                                         <p className="text-sm text-blue-800 dark:text-blue-300">
-                                            🎤 Conversation active - speak to your tutor!
+                                            🎤 Conversation active - speak to
+                                            your tutor!
                                         </p>
                                     </div>
                                     <button
