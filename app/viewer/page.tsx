@@ -2,15 +2,24 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Document, Page, pdfjs } from "react-pdf";
+import dynamic from "next/dynamic";
 import { Conversation } from "@elevenlabs/client";
 import ScreenshotArea from "../components/ScreenshotButton";
 import ThemeToggle from "../components/ThemeToggle";
+
+// Dynamically import react-pdf components with SSR disabled
+const Document = dynamic(
+    () => import("react-pdf").then((mod) => mod.Document),
+    { ssr: false }
+);
+const Page = dynamic(
+    () => import("react-pdf").then((mod) => mod.Page),
+    { ssr: false }
+);
+
+// Import CSS files
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
-
-// Configure PDF.js worker
-pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 interface FileData {
     name: string;
@@ -34,6 +43,11 @@ export default function Viewer() {
     // Ensure client-side only rendering
     useEffect(() => {
         setIsMounted(true);
+
+        // Configure PDF.js worker on client side only
+        import("react-pdf").then((pdfjs) => {
+            pdfjs.pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.pdfjs.version}/build/pdf.worker.min.mjs`;
+        });
     }, []);
 
     useEffect(() => {
