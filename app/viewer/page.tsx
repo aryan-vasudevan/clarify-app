@@ -180,6 +180,11 @@ export default function Viewer() {
             const conversation = await Conversation.startSession({
                 agentId: agentId,
                 connectionType: "webrtc",
+                overrides: {
+                    vad: {
+                        threshold: 0.8, // Increased VAP threshold - higher means louder speech required
+                    }
+                },
                 onConnect: () => {
                     console.log("Connected to agent");
                     setIsConnected(true);
@@ -192,26 +197,41 @@ export default function Viewer() {
                     console.error("Conversation error:", error);
                 },
                 onMessage: (message) => {
-                    console.log("Message from agent:", message);
+                    console.log("Full message object:", message);
+                    console.log("Message source (role):", message.source);
+                    console.log("Message content:", message.message);
+
+                    // Check if this is a user message or agent message based on source
+                    const isUserMessage = message.source === 'user';
+                    const messageRole = isUserMessage ? 'user' : 'agent';
+                    const messageContent = message.message;
+
+                    console.log("Determined role:", messageRole);
+                    console.log("Content:", messageContent);
+
                     // Only add to chat history if there's actual text content
-                    if (message.message && message.message.trim().length > 0) {
+                    if (messageContent && messageContent.trim().length > 0) {
                         setChatHistory(prev => {
                             const lastMsg = prev[prev.length - 1];
-                            // If last message was from agent, append to it
-                            if (lastMsg && lastMsg.role === 'agent') {
+                            console.log("Last message in history:", lastMsg);
+
+                            // If last message was from same role, append to it
+                            if (lastMsg && lastMsg.role === messageRole) {
+                                console.log("Appending to existing", messageRole, "message");
                                 return [
                                     ...prev.slice(0, -1),
                                     {
                                         ...lastMsg,
-                                        content: lastMsg.content + ' ' + message.message,
+                                        content: lastMsg.content + ' ' + messageContent,
                                         timestamp: new Date()
                                     }
                                 ];
                             }
                             // Otherwise create new message
+                            console.log("Creating new", messageRole, "message");
                             return [...prev, {
-                                role: 'agent',
-                                content: message.message,
+                                role: messageRole,
+                                content: messageContent,
                                 timestamp: new Date()
                             }];
                         });
@@ -236,25 +256,6 @@ export default function Viewer() {
 
     // Listen for screenshot events and send to conversation
     useEffect(() => {
-        const handleScreenshotProcessing = () => {
-            if (!conversationRef.current || !isConnected) {
-                console.log(
-                    "Screenshot being processed but conversation not active"
-                );
-                return;
-            }
-
-            // Send an immediate acknowledgment message
-            const acknowledgment =
-                "Wait while I process the diagram, I'll be able to explain it shortly.";
-
-            try {
-                conversationRef.current.sendUserMessage(acknowledgment);
-            } catch (error) {
-                console.error("Failed to send acknowledgment:", error);
-            }
-        };
-
         const handleNewScreenshot = (event: CustomEvent) => {
             if (!conversationRef.current || !isConnected) {
                 console.log("Screenshot taken but conversation not active");
@@ -304,19 +305,11 @@ export default function Viewer() {
         };
 
         window.addEventListener(
-            "screenshotProcessing",
-            handleScreenshotProcessing as EventListener
-        );
-        window.addEventListener(
             "newScreenshot",
             handleNewScreenshot as EventListener
         );
 
         return () => {
-            window.removeEventListener(
-                "screenshotProcessing",
-                handleScreenshotProcessing as EventListener
-            );
             window.removeEventListener(
                 "newScreenshot",
                 handleNewScreenshot as EventListener
