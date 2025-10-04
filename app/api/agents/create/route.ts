@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
   try {
-    const { knowledgeBaseId } = await request.json();
+    const { knowledgeBaseIds, fileNames } = await request.json();
+
+    const agentName = fileNames && fileNames.length > 0
+      ? `${fileNames.length === 1 ? fileNames[0] : 'Multi-Document'} Tutor`
+      : 'Document Tutor';
 
     const response = await fetch('https://api.elevenlabs.io/v1/convai/agents/create', {
       method: 'POST',
@@ -11,16 +15,16 @@ export async function POST(request: NextRequest) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        name: 'Economics Tutor',
+        name: agentName,
         conversation_config: {
           agent: {
             prompt: {
-              prompt: `You are an economics tutor. Use the economics textbook in your knowledge base to answer student questions accurately and clearly. Provide explanations, examples, and help students understand economic concepts.`,
+              prompt: `You are a helpful tutor. Use the ${fileNames && fileNames.length > 0 ? 'documents' : 'material'} in your knowledge base to answer student questions accurately and clearly. Provide explanations, examples, and help students understand the concepts from the provided material.`,
             },
           },
         },
         platform_settings: {
-          knowledge_base: knowledgeBaseId ? [knowledgeBaseId] : undefined,
+          knowledge_base: knowledgeBaseIds && knowledgeBaseIds.length > 0 ? knowledgeBaseIds : undefined,
         },
       }),
     });

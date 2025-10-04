@@ -1,20 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
-import { readFile } from "fs/promises";
-import { join } from "path";
 
 export async function POST(request: NextRequest) {
     try {
-        // read econ.pdf
-        const filePath = join(process.cwd(), "econ.pdf");
-        const fileBuffer = await readFile(filePath);
+        const formDataRequest = await request.formData();
+        const file = formDataRequest.get("file") as File;
+        const name = formDataRequest.get("name") as string;
+
+        if (!file) {
+            return NextResponse.json(
+                { error: "No file provided" },
+                { status: 400 }
+            );
+        }
 
         // Create FormData for multipart upload
         const formData = new FormData();
-        const blob = new Blob([new Uint8Array(fileBuffer)], {
-            type: "application/pdf",
-        });
-        formData.append("file", blob, "econ.pdf");
-        formData.append("name", "Economics Textbook");
+        formData.append("file", file);
+        formData.append("name", name || file.name);
 
         const response = await fetch(
             "https://api.elevenlabs.io/v1/convai/knowledge-base",

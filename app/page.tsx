@@ -14,16 +14,33 @@ export default function Home() {
     const createAgent = async () => {
         setIsCreating(true);
         try {
-            const kbResponse = await fetch("/api/knowledge-base/create", {
-                method: "POST",
-            });
-
-            if (!kbResponse.ok) {
-                throw new Error("Failed to create knowledge base");
+            if (selectedFiles.length === 0) {
+                alert("Please select at least one PDF file");
+                setIsCreating(false);
+                return;
             }
 
-            const kbData = await kbResponse.json();
-            setKnowledgeBaseId(kbData.document_id);
+            // Upload all PDFs to knowledge base
+            const documentIds: string[] = [];
+            for (const file of selectedFiles) {
+                const formData = new FormData();
+                formData.append("file", file);
+                formData.append("name", file.name.replace(".pdf", ""));
+
+                const kbResponse = await fetch("/api/knowledge-base/create", {
+                    method: "POST",
+                    body: formData,
+                });
+
+                if (!kbResponse.ok) {
+                    throw new Error(`Failed to create knowledge base for ${file.name}`);
+                }
+
+                const kbData = await kbResponse.json();
+                documentIds.push(kbData.document_id);
+            }
+
+            setKnowledgeBaseId(documentIds.join(","));
 
             const agentResponse = await fetch("/api/agents/create", {
                 method: "POST",
@@ -31,7 +48,8 @@ export default function Home() {
                     "Content-Type": "application/json",
                 },
                 body: JSON.stringify({
-                    knowledgeBaseId: kbData.document_id,
+                    knowledgeBaseIds: documentIds,
+                    fileNames: selectedFiles.map(f => f.name.replace(".pdf", "")),
                 }),
             });
 
@@ -104,18 +122,21 @@ export default function Home() {
             }
 
             if (knowledgeBaseId) {
-                const kbResponse = await fetch("/api/knowledge-base/delete", {
-                    method: "DELETE",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({
-                        document_id: knowledgeBaseId,
-                    }),
-                });
+                const documentIds = knowledgeBaseId.split(",");
+                for (const docId of documentIds) {
+                    const kbResponse = await fetch("/api/knowledge-base/delete", {
+                        method: "DELETE",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({
+                            document_id: docId,
+                        }),
+                    });
 
-                if (!kbResponse.ok) {
-                    throw new Error("Failed to delete knowledge base");
+                    if (!kbResponse.ok) {
+                        throw new Error("Failed to delete knowledge base");
+                    }
                 }
 
                 setKnowledgeBaseId(null);
