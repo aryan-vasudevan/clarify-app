@@ -9,42 +9,81 @@ interface SelectionRect {
     height: number;
 }
 
-export default function ScreenshotButton() {
-    const [isSelecting, setIsSelecting] = useState(false);
+interface ScreenshotAreaProps {
+    containerId?: string;
+}
+
+export default function ScreenshotArea({ containerId = "pdf-viewer-container" }: ScreenshotAreaProps) {
     const [selection, setSelection] = useState<SelectionRect | null>(null);
     const [isCapturing, setIsCapturing] = useState(false);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const [isMouseInContainer, setIsMouseInContainer] = useState(false);
     const startPos = useRef({ x: 0, y: 0 });
     const audioRef = useRef<HTMLAudioElement | null>(null);
+    const containerRef = useRef<HTMLElement | null>(null);
 
-    // Initialize audio
+    // Initialize audio and track mouse position globally
     useEffect(() => {
         audioRef.current = new Audio("/camera-shutter.mp3");
         audioRef.current.volume = 0.5;
-    }, []);
+        
+        // Get reference to the PDF container
+        containerRef.current = document.getElementById(containerId);
 
-    const handleButtonClick = (e: React.MouseEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setIsSelecting(true);
-        setSelection(null);
-    };
+        // Global mouse move listener to track when mouse is in the PDF container
+        const handleGlobalMouseMove = (e: MouseEvent) => {
+            if (!containerRef.current || isCapturing || isAnalyzing || selection) {
+                return;
+            }
+            
+            const rect = containerRef.current.getBoundingClientRect();
+            const inContainer = (
+                e.clientX >= rect.left &&
+                e.clientX <= rect.right &&
+                e.clientY >= rect.top &&
+                e.clientY <= rect.bottom
+            );
+            setIsMouseInContainer(inContainer);
+        };
 
-    const handleMouseDown = (e: React.MouseEvent) => {
-        if (!isSelecting) return;
-        e.preventDefault();
-        e.stopPropagation();
-        startPos.current = { x: e.clientX, y: e.clientY };
-        setSelection({
-            startX: e.clientX,
-            startY: e.clientY,
-            width: 0,
-            height: 0,
-        });
-    };
+        // Global mouse down listener to start selection when clicking in PDF container
+        const handleGlobalMouseDown = (e: MouseEvent) => {
+            if (!containerRef.current || isCapturing || isAnalyzing || selection) {
+                return;
+            }
+            
+            const rect = containerRef.current.getBoundingClientRect();
+            const inContainer = (
+                e.clientX >= rect.left &&
+                e.clientX <= rect.right &&
+                e.clientY >= rect.top &&
+                e.clientY <= rect.bottom
+            );
+            
+            if (inContainer) {
+                e.preventDefault();
+                console.log("Mouse down detected in PDF area, starting selection");
+                startPos.current = { x: e.clientX, y: e.clientY };
+                setSelection({
+                    startX: e.clientX,
+                    startY: e.clientY,
+                    width: 0,
+                    height: 0,
+                });
+            }
+        };
+
+        document.addEventListener("mousemove", handleGlobalMouseMove);
+        document.addEventListener("mousedown", handleGlobalMouseDown);
+
+        return () => {
+            document.removeEventListener("mousemove", handleGlobalMouseMove);
+            document.removeEventListener("mousedown", handleGlobalMouseDown);
+        };
+    }, [containerId, isCapturing, isAnalyzing, selection]);
 
     const handleMouseMove = (e: React.MouseEvent) => {
-        if (!isSelecting || !selection) return;
+        if (!selection) return;
         e.preventDefault();
         e.stopPropagation();
         
@@ -60,8 +99,7 @@ export default function ScreenshotButton() {
     };
 
     const handleMouseUp = async () => {
-        if (!isSelecting || !selection || selection.width < 10 || selection.height < 10) {
-            setIsSelecting(false);
+        if (!selection || selection.width < 10 || selection.height < 10) {
             setSelection(null);
             return;
         }
@@ -70,7 +108,6 @@ export default function ScreenshotButton() {
         const captureArea = { ...selection };
 
         // Close the selection overlay immediately
-        setIsSelecting(false);
         setSelection(null);
         setIsCapturing(true);
 
@@ -84,18 +121,30 @@ export default function ScreenshotButton() {
             }
 
             // Longer delay to ensure overlay is completely removed
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise(resolve => setTimeout(resolve, 150));
 
-            // Get all elements at the selected position
-            const elementsAtPosition = document.elementsFromPoint(
-                captureArea.startX + captureArea.width / 2,
-                captureArea.startY + captureArea.height / 2
-            );
+            // Find all canvas elements in the PDF container
+            const pdfContainer = document.getElementById('pdf-viewer-container');
+            if (!pdfContainer) {
+                throw new Error("Could not find PDF viewer container");
+            }
 
-            console.log("Elements at position:", elementsAtPosition);
+            const canvasElements = pdfContainer.querySelectorAll('canvas');
+            console.log("Found canvas elements:", canvasElements.length);
 
-            // Find the canvas element from react-pdf (this has the actual PDF rendered)
-            const canvasElement = elementsAtPosition.find(el => el.tagName === 'CANVAS') as HTMLCanvasElement;
+            // Find the canvas that contains our selection area
+            let canvasElement: HTMLCanvasElement | null = null;
+            for (const canvas of Array.from(canvasElements)) {
+                const rect = canvas.getBoundingClientRect();
+                const centerX = captureArea.startX + captureArea.width / 2;
+                const centerY = captureArea.startY + captureArea.height / 2;
+                
+                if (centerX >= rect.left && centerX <= rect.right &&
+                    centerY >= rect.top && centerY <= rect.bottom) {
+                    canvasElement = canvas as HTMLCanvasElement;
+                    break;
+                }
+            }
 
             if (!canvasElement) {
                 throw new Error("Could not find PDF canvas to capture");
@@ -177,9 +226,9 @@ export default function ScreenshotButton() {
                         }
                     }));
                 } else {
-                    const errorText = await ocrResponse.text();
-                    console.error("OCR failed:", errorText);
-                    alert("Failed to analyze screenshot with Gemini");
+                    const errorData = await ocrResponse.json();
+                    console.error("OCR failed:", errorData);
+                    alert(`Failed to analyze screenshot: ${errorData.details || errorData.error || 'Unknown error'}`);
                 }
             } catch (analysisError) {
                 console.error("Gemini analysis failed:", analysisError);
@@ -197,20 +246,28 @@ export default function ScreenshotButton() {
     // Handle ESC key press
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === "Escape" && isSelecting) {
-                setIsSelecting(false);
+            if (e.key === "Escape" && selection) {
                 setSelection(null);
             }
         };
 
-        if (isSelecting) {
+        if (selection) {
             document.addEventListener("keydown", handleKeyDown);
         }
 
         return () => {
             document.removeEventListener("keydown", handleKeyDown);
         };
-    }, [isSelecting]);
+    }, [selection]);
+
+    // Update cursor style when hovering over PDF area
+    useEffect(() => {
+        if (containerRef.current && isMouseInContainer && !selection && !isCapturing && !isAnalyzing) {
+            containerRef.current.style.cursor = "crosshair";
+        } else if (containerRef.current) {
+            containerRef.current.style.cursor = "";
+        }
+    }, [isMouseInContainer, selection, isCapturing, isAnalyzing]);
 
     return (
         <>
@@ -225,62 +282,37 @@ export default function ScreenshotButton() {
                 </div>
             )}
 
-            <button
-                type="button"
-                id="screenshot-button"
-                onClick={handleButtonClick}
-                disabled={isCapturing || isSelecting || isAnalyzing}
-                className="fixed top-6 right-20 z-50 w-12 h-12 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center hover:scale-110 transition-all duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                aria-label="Take screenshot"
-                title="Take screenshot"
-            >
-                <svg
-                    className={`w-6 h-6 text-gray-700 dark:text-gray-200 transition-transform duration-300 ${
-                        isCapturing ? "scale-90" : "scale-100"
-                    }`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
+            {/* Cursor indicator when hovering over PDF area (doesn't block events) */}
+            {isMouseInContainer && !selection && !isCapturing && !isAnalyzing && (
+                <div 
+                    className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-white dark:bg-gray-800 px-4 py-2 rounded-lg shadow-lg opacity-80"
+                    style={{ pointerEvents: "none" }}
                 >
-                    <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
-                    />
-                    <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
-                    />
-                </svg>
-            </button>
+                    <p className="text-sm text-gray-700 dark:text-gray-200">
+                        g to screenshot • Press ESC to canClick and dracel
+                    </p>
+                </div>
+            )}
 
-            {/* Selection Overlay */}
-            {isSelecting && (
+            {/* Selection Overlay - Only appears when actively selecting */}
+            {selection && !isCapturing && !isAnalyzing && (
                 <div
-                    className="fixed inset-0 z-[60] cursor-crosshair select-none"
-                    onMouseDown={handleMouseDown}
+                    className="fixed inset-0 select-none"
                     onMouseMove={handleMouseMove}
                     onMouseUp={handleMouseUp}
                     style={{
                         backgroundColor: "rgba(0, 0, 0, 0.3)",
+                        cursor: "crosshair",
                         userSelect: "none",
                         WebkitUserSelect: "none",
                         MozUserSelect: "none",
                         msUserSelect: "none",
+                        zIndex: 60,
+                        pointerEvents: "all",
                     }}
                 >
-                    {/* Instructions */}
-                    <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-white dark:bg-gray-800 px-4 py-2 rounded-lg shadow-lg">
-                        <p className="text-sm text-gray-700 dark:text-gray-200">
-                            Drag to select area • Press ESC to cancel
-                        </p>
-                    </div>
-
                     {/* Selection Rectangle */}
-                    {selection && selection.width > 0 && selection.height > 0 && (
+                    {selection.width > 0 && selection.height > 0 && (
                         <div
                             className="absolute border-2 border-blue-500 bg-blue-500/20"
                             style={{
@@ -288,6 +320,7 @@ export default function ScreenshotButton() {
                                 top: `${selection.startY}px`,
                                 width: `${selection.width}px`,
                                 height: `${selection.height}px`,
+                                pointerEvents: "none",
                             }}
                         >
                             {/* Corner handles */}

@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Document, Page, pdfjs } from "react-pdf";
 import { Conversation } from "@elevenlabs/client";
-import ScreenshotButton from "../components/ScreenshotButton";
+import ScreenshotArea from "../components/ScreenshotButton";
 import ThemeToggle from "../components/ThemeToggle";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
@@ -28,7 +28,13 @@ export default function Viewer() {
     const [knowledgeBaseIds, setKnowledgeBaseIds] = useState<string[]>([]);
     const [isCreating, setIsCreating] = useState(false);
     const [isConnected, setIsConnected] = useState(false);
+    const [isMounted, setIsMounted] = useState(false);
     const conversationRef = useRef<any>(null);
+
+    // Ensure client-side only rendering
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
 
     useEffect(() => {
         // Load files from sessionStorage
@@ -256,7 +262,7 @@ export default function Viewer() {
         }
     };
 
-    if (files.length === 0) {
+    if (files.length === 0 || !isMounted) {
         return null;
     }
 
@@ -264,7 +270,7 @@ export default function Viewer() {
 
     return (
         <div className="h-screen flex" style={{ fontFamily: "var(--font-geist-mono)" }}>
-            <ScreenshotButton />
+            <ScreenshotArea containerId="pdf-viewer-container" />
             <ThemeToggle />
             {/* Left side - PDF Viewer */}
             <div className="flex-1 flex flex-col bg-gray-100 dark:bg-gray-900 transition-colors duration-300">

@@ -56,8 +56,9 @@ Be thorough and detailed - this analysis will be used to help students understan
     return NextResponse.json({ text });
   } catch (error) {
     console.error('OCR error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Failed to analyze image';
     return NextResponse.json(
-      { error: 'Failed to analyze image' },
+      { error: 'Failed to analyze image', details: errorMessage },
       { status: 500 }
     );
   }
