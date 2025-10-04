@@ -1,103 +1,93 @@
-import Image from "next/image";
+"use client";
+
+import { useEffect, useState } from "react";
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+    const handleFilesSubmit = (event: React.FormEvent) => {
+        event.preventDefault();
+
+        // use selectedFiles with gemini code here
+        console.log("Submitted files:", selectedFiles);
+    };
+
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        if (!event.target.files) return;
+        setSelectedFiles([...selectedFiles, ...Array.from(event.target.files)]);
+        event.target.value = "";
+    };
+
+    const handleFileDelete = (_: number) => {
+        setSelectedFiles([
+            ...selectedFiles.slice(0, _),
+            ...selectedFiles.slice(_ + 1),
+        ]);
+    };
+
+    useEffect(() => {
+        console.log(selectedFiles);
+    }, [selectedFiles]);
+
+    return (
+        <div
+            className="min-h-screen flex flex-col justify-center place-items-center w-screen"
+            style={{ fontFamily: "var(--font-geist-mono)" }}
+        >
+            <form onSubmit={handleFilesSubmit} className="h-full w-full">
+                <div className="flex flex-col justify-center place-items-center my-4 w-full">
+                    <div className="flex justify-between h-12 px-4 py-2 w-4/5 border-gray-600 border-[1px] rounded-t-xl">
+                        <label
+                            htmlFor="file-upload"
+                            className="text-center border-2 border-blue-500 font-bold text-blue-500 hover:text-white bg-white hover:bg-blue-500 w-8 h-8 content-center rounded-lg cursor-pointer transition-all duration-100"
+                        >
+                            +
+                        </label>
+                        <input
+                            id="file-upload"
+                            type="file"
+                            multiple
+                            onChange={handleFileChange}
+                            style={{ display: "none" }}
+                            accept=".pdf"
+                        />
+                        <button
+                            type="submit"
+                            className="text-blue-500 bg-white border-blue-500 border-2 hover:text-white hover:bg-blue-500 px-2 rounded-lg h-full hover:cursor-pointer transition-all duration-100 font-normal"
+                        >
+                            Submit
+                        </button>
+                    </div>
+                    <div className="grid grid-cols-3 w-4/5 px-4 py-2 border-gray-600 border-[1px] rounded-b-xl border-t-transparent overflow-y-scroll h-24">
+                        {selectedFiles.length > 0 ? (
+                            selectedFiles.map((file, _) => (
+                                <div
+                                    key={_}
+                                    className="font-bold gap-x-2 opacity-80 hover:opacity-100 row-span-1 grid grid-cols-4 h-fit"
+                                >
+                                    <div className="col-span-3 truncate">
+                                        {file.name}
+                                    </div>
+                                    <button
+                                        className="hover:cursor-pointer"
+                                        onClick={() => handleFileDelete(_)}
+                                    >
+                                        ❌
+                                    </button>
+                                </div>
+                            ))
+                        ) : (
+                            <div className="col-span-3">
+                                Add files using the{" "}
+                                <span className="font-semibold text-blue-500">
+                                    +
+                                </span>{" "}
+                                icon (.pdf only)
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </form>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
-  );
+    );
 }
