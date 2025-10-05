@@ -1,4 +1,3 @@
-import { Fira_Code } from 'next/font/google';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {

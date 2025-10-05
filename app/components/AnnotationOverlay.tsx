@@ -85,15 +85,15 @@ export default function AnnotationOverlay({
     useEffect(() => {
         const container = document.getElementById(containerId);
         containerRef.current = container;
-        
+
         // Add click listener to container
         if (container) {
-            container.addEventListener('click', handleContainerClick as any);
+            container.addEventListener('click', handleContainerClick as EventListener);
         }
-        
+
         return () => {
             if (container) {
-                container.removeEventListener('click', handleContainerClick as any);
+                container.removeEventListener('click', handleContainerClick as EventListener);
             }
         };
     }, [containerId, handleContainerClick]);
@@ -159,11 +159,9 @@ export default function AnnotationOverlay({
     };
 
     const handleAnnotationMouseUp = () => {
-        const wasDragging = draggingId !== null;
-        
         setDraggingId(null);
         setMouseDownTime(0);
-        
+
         // If it wasn't a drag, it was just a click - don't do anything (keep selected)
     };
 
