@@ -305,11 +305,6 @@ export default function Viewer() {
             const conversation = await Conversation.startSession({
                 agentId: agentId,
                 connectionType: "webrtc",
-                overrides: {
-                    agent: {
-                        firstMessage: "Hello! I'm Kirb, your AI tutor. I'm here to help you understand any diagrams or concepts from your textbook. Feel free to ask me any questions or highlight a diagram for me to explain!",
-                    }
-                },
                 onConnect: () => {
                     console.log("Connected to agent");
                     setIsConnected(true);
@@ -398,7 +393,7 @@ export default function Viewer() {
                         ...prev.slice(0, -1),
                         {
                             ...lastMsg,
-                            content: lastMsg.content + ', sent a diagram or something',
+                            content: lastMsg.content + ', sent a diagram',
                             timestamp: new Date()
                         }
                     ];
@@ -406,7 +401,7 @@ export default function Viewer() {
                 // Otherwise create new message
                 return [...prev, {
                     role: 'user',
-                    content: 'sent a diagram or something',
+                    content: '* Sent a Diagram *',
                     timestamp: new Date()
                 }];
             });

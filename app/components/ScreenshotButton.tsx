@@ -284,18 +284,6 @@ export default function ScreenshotArea({ containerId = "pdf-viewer-container", i
                 </div>
             )}
 
-            {/* Cursor indicator when hovering over PDF area (doesn't block events) */}
-            {isMouseInContainer && !selection && !isCapturing && !isAnalyzing && (
-                <div 
-                    className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-white dark:bg-gray-800 px-4 py-2 rounded-lg shadow-lg opacity-80"
-                    style={{ pointerEvents: "none" }}
-                >
-                    <p className="text-sm text-gray-700 dark:text-gray-200">
-                        Click and drag to screenshot
-                    </p>
-                </div>
-            )}
-
             {/* Selection Overlay - Only appears when actively selecting */}
             {selection && !isCapturing && !isAnalyzing && (
                 <div

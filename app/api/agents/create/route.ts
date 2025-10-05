@@ -1,3 +1,4 @@
+import { Fira_Code } from 'next/font/google';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
@@ -18,6 +19,7 @@ export async function POST(request: NextRequest) {
         name: agentName,
         conversation_config: {
           agent: {
+            first_message: "Hello! I'm Kirb, your AI tutor. I'm here to help you understand any diagrams or concepts from your textbook. Feel free to ask me any questions or highlight a diagram for me to explain!",
             prompt: {
               prompt: `You are a helpful tutor. Use the ${fileNames && fileNames.length > 0 ? 'documents' : 'material'} in your knowledge base to answer student questions accurately and clearly. Provide explanations, examples, and help students understand the concepts from the provided material.`,
             },
