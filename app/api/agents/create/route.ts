@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
   try {
-    const { knowledgeBaseIds, fileNames } = await request.json();
+    const { knowledgeBaseIds, fileNames, voiceId } = await request.json();
 
     const agentName = fileNames && fileNames.length > 0
       ? `${fileNames.length === 1 ? fileNames[0] : 'Multi-Document'} Tutor`
@@ -34,6 +34,9 @@ IMPORTANT BEHAVIOR RULES:
             turn_timeout: 30,
             mode: "silence",
           },
+          tts: voiceId ? {
+            voice_id: voiceId,
+          } : undefined,
         },
         platform_settings: {
           knowledge_base: knowledgeBaseIds && knowledgeBaseIds.length > 0 ? knowledgeBaseIds : undefined,

@@ -63,6 +63,8 @@ export default function Viewer() {
     const [isAnnotationMode, setIsAnnotationMode] = useState(false);
     const [isDownloading, setIsDownloading] = useState(false);
     const [isFKeyHeld, setIsFKeyHeld] = useState(false);
+    const [voices, setVoices] = useState<any[]>([]);
+    const [selectedVoice, setSelectedVoice] = useState<string>("");
     const conversationRef = useRef<Conversation>(null);
     const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -98,6 +100,20 @@ export default function Viewer() {
         }));
 
         setFiles(filesWithData);
+
+        // Fetch available voices
+        fetch('/api/voices')
+            .then(res => res.json())
+            .then(data => {
+                if (data.voices) {
+                    setVoices(data.voices);
+                    // Set default voice if available
+                    if (data.voices.length > 0) {
+                        setSelectedVoice(data.voices[0].voice_id);
+                    }
+                }
+            })
+            .catch(err => console.error('Failed to fetch voices:', err));
     }, [router]);
 
     // F key detection for talk-to-agent control
@@ -325,6 +341,7 @@ export default function Viewer() {
                 body: JSON.stringify({
                     knowledgeBaseIds: documentIds,
                     fileNames: files.map((f) => f.name.replace(".pdf", "")),
+                    voiceId: selectedVoice,
                 }),
             });
 
@@ -730,6 +747,27 @@ export default function Viewer() {
                             <p className="text-sm text-gray-600 dark:text-gray-400">
                                 Ask Clarify questions about your documents.
                             </p>
+
+                            {/* Voice Selector */}
+                            {voices.length > 0 && (
+                                <div className="space-y-2">
+                                    <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                                        Voice
+                                    </label>
+                                    <select
+                                        value={selectedVoice}
+                                        onChange={(e) => setSelectedVoice(e.target.value)}
+                                        className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    >
+                                        {voices.map((voice) => (
+                                            <option key={voice.voice_id} value={voice.voice_id}>
+                                                {voice.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+
                             <button
                                 onClick={async () => {
                                     try {
