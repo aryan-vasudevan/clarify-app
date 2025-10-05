@@ -21,8 +21,19 @@ export async function POST(request: NextRequest) {
           agent: {
             first_message: "Hello! I'm Kirb, your AI tutor. I'm here to help you understand any diagrams or concepts from your textbook. Feel free to ask me any questions or highlight a diagram for me to explain!",
             prompt: {
-              prompt: `You are a helpful tutor. Use the ${fileNames && fileNames.length > 0 ? 'documents' : 'material'} in your knowledge base to answer student questions accurately and clearly. Provide explanations, examples, and help students understand the concepts from the provided material.`,
+              prompt: `You are a helpful tutor. Use the ${fileNames && fileNames.length > 0 ? 'documents' : 'material'} in your knowledge base to answer student questions accurately and clearly. Provide explanations, examples, and help students understand the concepts from the provided material.
+
+IMPORTANT BEHAVIOR RULES:
+- NEVER ask "Are you still there?" or check in proactively
+- ONLY speak when the user asks you a question or sends you information
+- If the user says they'll let you know if they need help, simply acknowledge and then stay completely silent
+- Do NOT initiate conversation or ask follow-up questions unless the user specifically asks you something
+- Wait patiently for the user to speak to you`,
             },
+          },
+          turn: {
+            turn_timeout: 30,
+            mode: "silence",
           },
         },
         platform_settings: {
