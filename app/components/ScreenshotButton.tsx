@@ -11,9 +11,10 @@ interface SelectionRect {
 
 interface ScreenshotAreaProps {
     containerId?: string;
+    isDisabled?: boolean;
 }
 
-export default function ScreenshotArea({ containerId = "pdf-viewer-container" }: ScreenshotAreaProps) {
+export default function ScreenshotArea({ containerId = "pdf-viewer-container", isDisabled = false }: ScreenshotAreaProps) {
     const [selection, setSelection] = useState<SelectionRect | null>(null);
     const [isCapturing, setIsCapturing] = useState(false);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -32,7 +33,8 @@ export default function ScreenshotArea({ containerId = "pdf-viewer-container" }:
 
         // Global mouse move listener to track when mouse is in the PDF container
         const handleGlobalMouseMove = (e: MouseEvent) => {
-            if (!containerRef.current || isCapturing || isAnalyzing || selection) {
+            if (!containerRef.current || isCapturing || isAnalyzing || selection || isDisabled) {
+                setIsMouseInContainer(false);
                 return;
             }
             
@@ -48,7 +50,7 @@ export default function ScreenshotArea({ containerId = "pdf-viewer-container" }:
 
         // Global mouse down listener to start selection when clicking in PDF container
         const handleGlobalMouseDown = (e: MouseEvent) => {
-            if (!containerRef.current || isCapturing || isAnalyzing || selection) {
+            if (!containerRef.current || isCapturing || isAnalyzing || selection || isDisabled) {
                 return;
             }
             
@@ -80,7 +82,7 @@ export default function ScreenshotArea({ containerId = "pdf-viewer-container" }:
             document.removeEventListener("mousemove", handleGlobalMouseMove);
             document.removeEventListener("mousedown", handleGlobalMouseDown);
         };
-    }, [containerId, isCapturing, isAnalyzing, selection]);
+    }, [containerId, isCapturing, isAnalyzing, selection, isDisabled]);
 
     const handleMouseMove = (e: React.MouseEvent) => {
         if (!selection) return;
@@ -110,9 +112,6 @@ export default function ScreenshotArea({ containerId = "pdf-viewer-container" }:
         // Close the selection overlay immediately
         setSelection(null);
         setIsCapturing(true);
-
-        // Dispatch event to notify that screenshot processing is starting
-        window.dispatchEvent(new CustomEvent("screenshotProcessing"));
 
         try {
             // Play camera shutter sound
@@ -265,12 +264,12 @@ export default function ScreenshotArea({ containerId = "pdf-viewer-container" }:
 
     // Update cursor style when hovering over PDF area
     useEffect(() => {
-        if (containerRef.current && isMouseInContainer && !selection && !isCapturing && !isAnalyzing) {
+        if (containerRef.current && isMouseInContainer && !selection && !isCapturing && !isAnalyzing && !isDisabled) {
             containerRef.current.style.cursor = "crosshair";
         } else if (containerRef.current) {
             containerRef.current.style.cursor = "";
         }
-    }, [isMouseInContainer, selection, isCapturing, isAnalyzing]);
+    }, [isMouseInContainer, selection, isCapturing, isAnalyzing, isDisabled]);
 
     return (
         <>
@@ -285,6 +284,17 @@ export default function ScreenshotArea({ containerId = "pdf-viewer-container" }:
                 </div>
             )}
 
+            {/* Cursor indicator when hovering over PDF area (doesn't block events) */}
+            {isMouseInContainer && !selection && !isCapturing && !isAnalyzing && (
+                <div 
+                    className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-white dark:bg-gray-800 px-4 py-2 rounded-lg shadow-lg opacity-80"
+                    style={{ pointerEvents: "none" }}
+                >
+                    <p className="text-sm text-gray-700 dark:text-gray-200">
+                        Click and drag to screenshot
+                    </p>
+                </div>
+            )}
 
             {/* Selection Overlay - Only appears when actively selecting */}
             {selection && !isCapturing && !isAnalyzing && (

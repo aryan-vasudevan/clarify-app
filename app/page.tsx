@@ -1,11 +1,45 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+
+const words = ["conversational", "interactive", "personalized", "intelligent", "instant"];
 
 export default function Home() {
     const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+    const [displayedWord, setDisplayedWord] = useState("");
+    const [currentWordIndex, setCurrentWordIndex] = useState(0);
+    const [isDeleting, setIsDeleting] = useState(false);
     const router = useRouter();
+    
+    useEffect(() => {
+        const currentWord = words[currentWordIndex];
+        
+        const typingSpeed = isDeleting ? 30 : 50;
+        
+        const timer = setTimeout(() => {
+            if (!isDeleting) {
+                // Typing forward
+                if (displayedWord.length < currentWord.length) {
+                    setDisplayedWord(currentWord.slice(0, displayedWord.length + 1));
+                } else {
+                    // Finished typing, wait 3 seconds then start deleting
+                    setTimeout(() => setIsDeleting(true), 3000);
+                }
+            } else {
+                // Deleting backward
+                if (displayedWord.length > 0) {
+                    setDisplayedWord(displayedWord.slice(0, -1));
+                } else {
+                    // Finished deleting, move to next word
+                    setIsDeleting(false);
+                    setCurrentWordIndex((prev) => (prev + 1) % words.length);
+                }
+            }
+        }, typingSpeed);
+        
+        return () => clearTimeout(timer);
+    }, [displayedWord, currentWordIndex, isDeleting]);
 
     const handleContinue = () => {
         if (selectedFiles.length === 0) {
@@ -61,9 +95,15 @@ export default function Home() {
                     <h1 className="text-4xl font-bold text-gray-800 dark:text-gray-100 mb-2">
                         Kirb
                     </h1>
-                    <p className="text-gray-600 dark:text-gray-400">
-                        Upload your textbook/chapter and get conversational help from Kirb
-                    </p>
+                    <div className="text-gray-600 dark:text-gray-400">
+                        <p className="mb-1">Upload your textbook/chapter and get help from Kirb that is</p>
+                        <div className="flex items-center justify-center min-h-[32px]">
+                            <span className="text-blue-600 dark:text-blue-400 font-semibold text-lg">
+                                {displayedWord}
+                            </span>
+                            <span className="inline-block w-0.5 h-5 bg-blue-600 dark:bg-blue-400 ml-0.5 animate-pulse" />
+                        </div>
+                    </div>
                 </div>
 
                 <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 transition-colors duration-300">

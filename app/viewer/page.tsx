@@ -6,6 +6,8 @@ import dynamic from "next/dynamic";
 import { Conversation } from "@elevenlabs/client";
 import ScreenshotArea from "../components/ScreenshotButton";
 import ThemeToggle from "../components/ThemeToggle";
+import AnnotationOverlay from "../components/AnnotationOverlay";
+import html2canvas from "html2canvas";
 
 // Dynamically import react-pdf components with SSR disabled
 const Document = dynamic(
@@ -33,6 +35,16 @@ interface ChatMessage {
     timestamp: Date;
 }
 
+interface Annotation {
+    id: string;
+    x: number;
+    y: number;
+    text: string;
+    fileIndex: number;
+    width?: number;
+    height?: number;
+}
+
 export default function Viewer() {
     const router = useRouter();
     const [files, setFiles] = useState<FileData[]>([]);
@@ -47,6 +59,9 @@ export default function Viewer() {
     const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
     const [isChatModalOpen, setIsChatModalOpen] = useState(false);
     const [showScreenshotBanner, setShowScreenshotBanner] = useState(true);
+    const [annotations, setAnnotations] = useState<Annotation[]>([]);
+    const [isAnnotationMode, setIsAnnotationMode] = useState(false);
+    const [isDownloading, setIsDownloading] = useState(false);
     const conversationRef = useRef<Conversation>(null);
     const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -110,6 +125,116 @@ export default function Viewer() {
 
     const resetZoom = () => {
         setScale(1.0);
+    };
+
+    // Annotation handlers
+    const handleAddAnnotation = (annotation: Omit<Annotation, "id">) => {
+        const newAnnotation: Annotation = {
+            ...annotation,
+            id: `annotation-${Date.now()}-${Math.random()}`,
+        };
+        setAnnotations((prev) => [...prev, newAnnotation]);
+    };
+
+    const handleUpdateAnnotation = (id: string, updates: Partial<Annotation>) => {
+        setAnnotations((prev) =>
+            prev.map((ann) => (ann.id === id ? { ...ann, ...updates } : ann))
+        );
+    };
+
+    const handleDeleteAnnotation = (id: string) => {
+        setAnnotations((prev) => prev.filter((ann) => ann.id !== id));
+    };
+
+    const downloadAnnotatedPDF = async () => {
+        const pdfContainer = document.getElementById("pdf-viewer-container");
+        if (!pdfContainer) {
+            alert("PDF container not found");
+            return;
+        }
+
+        setIsDownloading(true);
+
+        try {
+            // Temporarily disable annotation mode to hide selection UI
+            const wasAnnotationMode = isAnnotationMode;
+            if (wasAnnotationMode) {
+                setIsAnnotationMode(false);
+            }
+
+            // Wait for state to update and UI to stabilize
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            // Capture the PDF container with annotations
+            const canvas = await html2canvas(pdfContainer, {
+                scale: 2,
+                useCORS: true,
+                allowTaint: true,
+                logging: true, // Enable logging to debug
+                backgroundColor: "#e5e7eb",
+                windowWidth: pdfContainer.scrollWidth,
+                windowHeight: pdfContainer.scrollHeight,
+                scrollX: 0,
+                scrollY: -pdfContainer.scrollTop,
+                onclone: (clonedDoc) => {
+                    // Fix oklch colors by converting them to hex
+                    const clonedContainer = clonedDoc.getElementById("pdf-viewer-container");
+                    if (clonedContainer) {
+                        // Force standard colors on all elements
+                        clonedContainer.style.backgroundColor = "#e5e7eb";
+                        const allElements = clonedContainer.getElementsByTagName("*");
+                        for (let i = 0; i < allElements.length; i++) {
+                            const el = allElements[i] as HTMLElement;
+                            const computedStyle = window.getComputedStyle(el);
+                            // Convert computed colors to inline styles
+                            if (computedStyle.backgroundColor && computedStyle.backgroundColor !== 'rgba(0, 0, 0, 0)') {
+                                el.style.backgroundColor = computedStyle.backgroundColor;
+                            }
+                            if (computedStyle.color) {
+                                el.style.color = computedStyle.color;
+                            }
+                            if (computedStyle.borderColor) {
+                                el.style.borderColor = computedStyle.borderColor;
+                            }
+                        }
+                    }
+                },
+            });
+
+            // Restore annotation mode
+            if (wasAnnotationMode) {
+                setIsAnnotationMode(true);
+            }
+
+            // Convert canvas to blob and download
+            canvas.toBlob((blob) => {
+                if (blob) {
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement("a");
+                    link.href = url;
+                    const filename = currentFile?.name ? 
+                        `${currentFile.name.replace('.pdf', '')}_annotated.png` : 
+                        'annotated_pdf.png';
+                    link.download = filename;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                    setIsDownloading(false);
+                } else {
+                    throw new Error("Failed to create blob from canvas");
+                }
+            }, 'image/png');
+
+        } catch (error) {
+            console.error("Error downloading annotated PDF:", error);
+            const errorMessage = error instanceof Error ? error.message : "Unknown error";
+            alert(`Failed to download annotated PDF: ${errorMessage}`);
+            
+            // Make sure to restore annotation mode even if error occurs
+            setIsAnnotationMode(isAnnotationMode);
+            setIsDownloading(false);
+        }
     };
 
     const createAgent = async () => {
@@ -377,21 +502,21 @@ export default function Viewer() {
             className="h-screen flex"
             style={{ fontFamily: "var(--font-geist-mono)" }}
         >
-            <ScreenshotArea containerId="pdf-viewer-container" />
+            <ScreenshotArea containerId="pdf-viewer-container" isDisabled={isAnnotationMode} />
             <ThemeToggle />
             {/* Left side - PDF Viewer */}
             <div className="flex-1 flex flex-col bg-gray-100 dark:bg-gray-900 transition-colors duration-300">
                 {/* Header with file navigation */}
-                <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 transition-colors duration-300">
+                <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-2.5 transition-colors duration-300">
                     <div className="flex items-center">
                         {/* Left section (1/5) - Back button */}
                         <div className="w-1/5 flex justify-start">
                             <button
                                 onClick={() => router.push("/")}
-                                className="text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 flex items-center transition-colors"
+                                className="text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 flex items-center transition-colors text-sm"
                             >
                                 <svg
-                                    className="w-5 h-5 mr-2"
+                                    className="w-4 h-4 mr-1.5"
                                     fill="none"
                                     stroke="currentColor"
                                     viewBox="0 0 24 24"
@@ -408,47 +533,71 @@ export default function Viewer() {
                         </div>
 
                         {/* Center section (3/5) - File navigation */}
-                        <div className="w-3/5 flex items-center justify-center space-x-4">
+                        <div className="w-3/5 flex items-center justify-center space-x-3">
                             <button
                                 onClick={goToPrevFile}
                                 disabled={currentFileIndex === 0}
-                                className="px-3 py-1 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-gray-800 dark:text-gray-200 transition-colors"
+                                className="px-2 py-1 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-gray-800 dark:text-gray-200 transition-colors flex items-center text-xs"
                             >
-                                ← Prev File
+                                <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                </svg>
+                                Prev
                             </button>
-                            <span className="text-sm text-gray-600 dark:text-gray-400">
-                                {currentFile.name} ({currentFileIndex + 1} of{" "}
-                                {files.length})
+                            <span className="text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                                {currentFile.name} ({currentFileIndex + 1} of {files.length})
                             </span>
                             <button
                                 onClick={goToNextFile}
                                 disabled={currentFileIndex === files.length - 1}
-                                className="px-3 py-1 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-gray-800 dark:text-gray-200 transition-colors"
+                                className="px-2 py-1 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-gray-800 dark:text-gray-200 transition-colors flex items-center text-xs"
                             >
-                                Next File →
+                                Next
+                                <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                </svg>
                             </button>
                         </div>
 
-                        {/* Right section (1/5) - Zoom controls as one box */}
-                        <div className="w-1/5 flex justify-end">
-                            <div className="flex items-stretch bg-gray-200 dark:bg-gray-700 rounded overflow-hidden">
+                        {/* Right section (1/5) - Annotation and Zoom controls */}
+                        <div className="w-1/5 flex justify-end gap-1.5">
+                            {/* Annotation Button */}
+                            <button
+                                onClick={() => setIsAnnotationMode(!isAnnotationMode)}
+                                className={`px-2 py-1 rounded transition-colors flex items-center justify-center ${
+                                    isAnnotationMode
+                                        ? "bg-blue-500 text-white hover:bg-blue-600"
+                                        : "bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600"
+                                }`}
+                                title={isAnnotationMode ? "Exit Annotation Mode" : "Annotation Mode"}
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="m15 16 2.536-7.328a1.02 1.02 1 0 1 1.928 0L22 16"/>
+                                    <path d="M15.697 14h5.606"/>
+                                    <path d="m2 16 4.039-9.69a.5.5 0 0 1 .923 0L11 16"/>
+                                    <path d="M3.304 13h6.392"/>
+                                </svg>
+                            </button>
+                            
+                            {/* Zoom Controls */}
+                            <div className="flex items-stretch bg-gray-200 dark:bg-gray-700 rounded overflow-hidden text-xs">
                                 <button
                                     onClick={zoomOut}
-                                    className="px-3 py-1 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 transition-colors border-r border-gray-300 dark:border-gray-600"
+                                    className="px-2 py-1 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 transition-colors border-r border-gray-300 dark:border-gray-600"
                                     title="Zoom Out"
                                 >
                                     -
                                 </button>
                                 <button
                                     onClick={resetZoom}
-                                    className="px-3 py-1 hover:bg-gray-300 dark:hover:bg-gray-600 text-xs text-gray-800 dark:text-gray-200 transition-colors border-r border-gray-300 dark:border-gray-600"
+                                    className="px-2 py-1 hover:bg-gray-300 dark:hover:bg-gray-600 text-[10px] text-gray-800 dark:text-gray-200 transition-colors border-r border-gray-300 dark:border-gray-600"
                                     title="Reset Zoom"
                                 >
                                     {Math.round(scale * 100)}%
                                 </button>
                                 <button
                                     onClick={zoomIn}
-                                    className="px-3 py-1 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 transition-colors"
+                                    className="px-2 py-1 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 transition-colors"
                                     title="Zoom In"
                                 >
                                     +
@@ -462,8 +611,7 @@ export default function Viewer() {
                 {showScreenshotBanner && (
                     <div className="bg-blue-50 dark:bg-blue-900/30 px-4 py-2 text-center relative">
                         <p className="text-sm text-blue-800 dark:text-blue-300">
-                            Click and drag on the PDF to screenshot • Press ESC to
-                            cancel
+                            Click and drag on the PDF to screenshot
                         </p>
                         <button
                             onClick={() => setShowScreenshotBanner(false)}
@@ -480,8 +628,19 @@ export default function Viewer() {
                 {/* PDF Display */}
                 <div
                     id="pdf-viewer-container"
-                    className="flex-1 overflow-auto bg-gray-200 dark:bg-gray-800 p-4 transition-colors duration-300"
+                    className="flex-1 overflow-auto bg-gray-200 dark:bg-gray-800 p-4 transition-colors duration-300 relative"
                 >
+                    {/* Annotation Overlay */}
+                    <AnnotationOverlay
+                        isAnnotationMode={isAnnotationMode}
+                        annotations={annotations}
+                        currentFileIndex={currentFileIndex}
+                        onAddAnnotation={handleAddAnnotation}
+                        onUpdateAnnotation={handleUpdateAnnotation}
+                        onDeleteAnnotation={handleDeleteAnnotation}
+                        containerId="pdf-viewer-container"
+                    />
+
                     {currentFile.dataUrl && (
                         <div className="flex justify-center">
                             <Document
@@ -662,6 +821,40 @@ export default function Viewer() {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Download Annotated PDF Button */}
+            {annotations.filter(a => a.fileIndex === currentFileIndex).length > 0 && (
+                <button
+                    onClick={downloadAnnotatedPDF}
+                    disabled={isDownloading}
+                    className="fixed bottom-6 right-6 z-40 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-400 disabled:cursor-not-allowed text-white rounded-full p-4 shadow-lg transition-all duration-200 hover:scale-110 disabled:scale-100 flex items-center justify-center group"
+                    title={isDownloading ? "Downloading..." : "Download Annotated PDF"}
+                >
+                    {isDownloading ? (
+                        <svg className="w-6 h-6 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    ) : (
+                        <svg 
+                            className="w-6 h-6" 
+                            fill="none" 
+                            stroke="currentColor" 
+                            viewBox="0 0 24 24"
+                        >
+                            <path 
+                                strokeLinecap="round" 
+                                strokeLinejoin="round" 
+                                strokeWidth={2} 
+                                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                            />
+                        </svg>
+                    )}
+                    <span className="absolute right-full mr-3 bg-gray-800 text-white text-sm px-3 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                        {isDownloading ? "Downloading..." : "Download with annotations"}
+                    </span>
+                </button>
             )}
 
         </div>
