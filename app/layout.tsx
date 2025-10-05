@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "// Kirb //",
-  description: "Upload your textbook and get conversational help from Kirb",
+  title: "// Clarify //",
+  description: "Upload your textbook and get conversational help from Clarify",
 };
 
 export default function RootLayout({

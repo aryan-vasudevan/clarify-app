@@ -93,10 +93,10 @@ export default function Home() {
             <div className="max-w-2xl w-full px-6">
                 <div className="text-center mb-8">
                     <h1 className="text-4xl font-bold text-gray-800 dark:text-gray-100 mb-2">
-                        Kirb
+                        Clarify
                     </h1>
                     <div className="text-gray-600 dark:text-gray-400">
-                        <p className="mb-1">Upload your textbook/chapter and get help from Kirb that is</p>
+                        <p className="mb-1">Upload your textbook/chapter and get help from Clarify that is</p>
                         <div className="flex items-center justify-center min-h-[32px]">
                             <span className="text-blue-600 dark:text-blue-400 font-semibold text-lg">
                                 {displayedWord}

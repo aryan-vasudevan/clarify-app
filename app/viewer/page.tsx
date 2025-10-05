@@ -716,7 +716,7 @@ export default function Viewer() {
             <div className="w-96 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 flex flex-col transition-colors duration-300">
                 <div className="p-6 border-b border-gray-200 dark:border-gray-700">
                     <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">
-                        Kirb
+                        Clarify
                     </h2>
                     <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                         {files.length} document{files.length > 1 ? "s" : ""}{" "}
@@ -728,7 +728,7 @@ export default function Viewer() {
                     {!isConnected ? (
                         <div className="space-y-4">
                             <p className="text-sm text-gray-600 dark:text-gray-400">
-                                Ask Kirb questions about your documents.
+                                Ask Clarify questions about your documents.
                             </p>
                             <button
                                 onClick={async () => {
@@ -739,7 +739,7 @@ export default function Viewer() {
                                         }
                                     } catch (error) {
                                         console.error("Failed to start:", error);
-                                        alert("Failed to start Kirb. Please try again.");
+                                        alert("Failed to start Clarify. Please try again.");
                                     }
                                 }}
                                 disabled={isCreating || isConnected}
@@ -747,7 +747,7 @@ export default function Viewer() {
                             >
                                 {isCreating || isConnected
                                     ? "Starting..."
-                                    : "Ask Kirb"}
+                                    : "Ask Clarify"}
                             </button>
                         </div>
                     ) : (
@@ -765,7 +765,7 @@ export default function Viewer() {
                                 }`}>
                                     {isFKeyHeld
                                         ? '🎤 Listening - Ask me anything!'
-                                        : '⌨️ Press F to ask Kirb something'}
+                                        : '⌨️ Press F to ask Clarify something'}
                                 </p>
                             </div>
 
