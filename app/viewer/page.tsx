@@ -181,8 +181,8 @@ export default function Viewer() {
                 agentId: agentId,
                 connectionType: "webrtc",
                 overrides: {
-                    vad: {
-                        threshold: 0.8, // Increased VAP threshold - higher means louder speech required
+                    agent: {
+                        firstMessage: "Hello! I'm Kirb, your AI tutor. I'm here to help you understand any diagrams or concepts from your textbook. Feel free to ask me any questions or highlight a diagram for me to explain!",
                     }
                 },
                 onConnect: () => {
