@@ -63,7 +63,7 @@ export default function Viewer() {
     const [isAnnotationMode, setIsAnnotationMode] = useState(false);
     const [isDownloading, setIsDownloading] = useState(false);
     const [isFKeyHeld, setIsFKeyHeld] = useState(false);
-    const [voices, setVoices] = useState<any[]>([]);
+    const [voices, setVoices] = useState<Array<{ voice_id: string; name: string }>>([]);
     const [selectedVoice, setSelectedVoice] = useState<string>("");
     const conversationRef = useRef<Conversation>(null);
     const chatEndRef = useRef<HTMLDivElement>(null);
